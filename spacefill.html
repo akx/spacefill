@@ -1,0 +1,156 @@
+<!DOCTYPE HTML>
+<html>
+<head><meta charset="UTF-8"></head>
+<body>
+<style type="text/css">
+body{margin:0;padding:0;overflow:hidden}body,html{width:100%;height:100%}
+#help { position: absolute; left: 0; top: 0; width:15em; font: 11px/13px arial, sans-serif; padding:2px; background: #333; color:#fff;opacity: 0.8; cursor:none}
+#help:hover {opacity:0;}
+</style>
+<canvas id="c" style="width:100%;height:100%"></canvas>
+<script type="text/javascript">
+var canvas = document.getElementById("c");
+var ctx = canvas.getContext("2d");
+var cw = canvas.width = (window.innerWidth >> 1);
+var ch = canvas.height = (window.innerHeight >> 1);
+var img = null;
+var imgd = null;
+var open = [];
+var order = [
+	[-1, 0],
+	[ 0,-1],
+	[ 1, 0],
+	[ 0, 1]
+];
+var step = 0;
+var seen = {};
+var pickOffset = 0;
+var color = false;
+
+function hueToRGB (d) {
+	var a, b, c, f = Math.floor(6 * d), e = 6 * d - f, d = 1 * (1 - 1 * e), e = 1 * (1 - 1 * (1 - e));
+	switch (f % 6) {
+	case 0:	a = 1;	b = e;	c = 0;	break;
+	case 1:	a = d;	b = 1;	c = 0;	break;
+	case 2:	a = 0;	b = 1;	c = e;	break;
+	case 3:	a = 0;	b = d;	c = 1;	break;
+	case 4:	a = e;	b = 0;	c = 1;	break;
+	case 5:	a = 1;	b = 0;	c = d;	break;
+	}
+	return [255 * a, 255 * b, 255 * c]
+};
+
+function selectNode() { // This is the most magical function. For some reason using the flood fill step yields this sort of result.
+	return step % (pickOffset + open.length);
+}
+
+function offs(x, y) {
+	return y * 4 * img.width + x * 4;
+}
+
+function singleStep() {
+	if(!open.length) return;
+	p = selectNode();
+	while(p < 0) p += open.length;
+	p %= open.length;
+	var node = open.splice(p, 1)[0];
+	var off = offs(node.x, node.y);
+	var R, G, B;
+	R = G = B = 255;
+	if(color) {
+		var rgb = hueToRGB(step / 7200.0);
+		R = rgb[0];
+		G = rgb[1];
+		B = rgb[2];
+	}
+
+	imgd[off] = R;
+	imgd[off + 1] = G;
+	imgd[off + 2] = B;
+	order.forEach(function(el) {
+		var x = node.x + el[0];
+		var y = node.y + el[1];
+		if(x >= 0 && x < cw && y >= 0 && y < ch) {
+			var off = offs(x, y);
+			var val = imgd[off];
+			if(val < 40 && !seen[off]) {
+				open.push({x: x, y: y});
+				seen[off] = 1;
+			}
+		}
+	});
+	step++;
+}
+
+function doStep() {
+	for(var i = 0; i < 25; i++) singleStep();
+	ctx.putImageData(img, 0, 0);
+}
+
+function init() {
+	ctx.fillStyle = "black";
+	ctx.fillRect(0, 0, cw, ch);
+	img = ctx.getImageData(0, 0, cw, ch);
+	imgd = img.data;
+	open = [];
+	seen = {};
+	step = 0;
+	open.push({x: 0 | (Math.random() * cw), y: 0 | (Math.random() * ch)});
+}
+
+
+function fisherYates ( myArray ) { // http://sedition.com/perl/javascript-fy.html
+	var i = myArray.length;
+	if ( i == 0 ) return false;
+	while ( --i ) {
+		 var j = Math.floor( Math.random() * ( i + 1 ) );
+		 var tempi = myArray[i];
+		 var tempj = myArray[j];
+		 myArray[i] = tempj;
+		 myArray[j] = tempi;
+	 }
+}
+
+(function(){
+	document.addEventListener("keydown", function(event) {
+		if(event.keyCode == 32) {
+			fisherYates(order);
+			pickOffset = 0 | (Math.random() * 5);
+			init();
+		}
+		if(event.keyCode == 83) { // s 
+			step = 0;
+		}
+		if(event.keyCode == 68) { // d
+			step --;
+		}
+		if(event.keyCode == 72) { // h
+			step /= 2;
+		}
+		if(event.keyCode == 73) { // i
+			step ++;
+		}
+		if(event.keyCode == 77) { // m
+			step *= 2;
+		}
+		if(event.keyCode == 67) { // c
+			color = !color;
+		}
+
+		console.log(event.keyCode);
+	}, false);
+
+
+	init();
+	setInterval(doStep, 10);
+}());
+</script>
+<div id="help">
+	<p>This is a strange flood-fill algorithm I stumbled upon a while back and I have no idea why it does its thing like it does.</p>
+	<p>What it does is sort of pretty though. You can hit SPACE to start with different variations of the theme -- that mostly but change the order in which pixels are added to the as-of-yet-unseen list. Hitting S will reset the step variable, for interesting results; D decrements it, I increments, H halves and M doubles (<i>m</i>ultiplies by two). C toggles coloring the pixels by their step value.</p>
+	<p>The source is unobfuscated, so <i>please</i> take a look, and if you know what's going on, let me know. Twitter <tt>@akx</tt>, email (the same handle) at iki dot fi.</p>
+	<p>If something seems broken, try Chrome. Ps. mouseover this box to hide it.</p>
+
+</div>
+</body>
+</html>
